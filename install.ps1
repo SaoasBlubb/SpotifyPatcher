@@ -63,7 +63,7 @@ $webClient = New-Object -TypeName System.Net.WebClient
 try {
   $webClient.DownloadFile(
     # Remote file URL
-    'https://github.com/SaoasBlubb/install.ps1/raw/main/chrome_elf.zip',
+    'https://github.com/SaoasBlubb/SpotifyPatcher/raw/main/chrome_elf.zip',
     # Local file path
     "$PWD\chrome_elf.zip"
   )
@@ -75,7 +75,7 @@ try {
 try {
   $webClient.DownloadFile(
     # Remote file URL
-    'https://github.com/SaoasBlubb/install.ps1/raw/main/zlink.zip',
+    'https://github.com/SaoasBlubb/SpotifyPatcher/raw/main/zlink.zip',
     # Local file path
     "$PWD\zlink.zip"
   )
@@ -86,7 +86,7 @@ try {
 try {
   $webClient.DownloadFile(
     # Remote file URL
-    'https://github.com/SaoasBlubb/install.ps1/raw/main/xpui.zip',
+    'https://github.com/SaoasBlubb/SpotifyPatcher/raw/main/xpui.zip',
     # Local file path
     "$PWD\xpui.zip"
   )
