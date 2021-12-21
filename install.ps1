@@ -2,17 +2,11 @@
 $PSDefaultParameterValues['Stop-Process:ErrorAction'] = 'SilentlyContinue'
 
 write-host @'
-***************** 
-@Saoas Nachricht:
-Spotify Auto Cracker :D
-***************** 
+#########################
+Saoas' Auto Spotify Patcher
+#########################
 '@
 
-write-host @'
-***************** 
-Author: @Saoas
-***************** 
-'@
 
 $SpotifyDirectory = "$env:APPDATA\Spotify"
 $SpotifyExecutable = "$SpotifyDirectory\Spotify.exe"
@@ -111,7 +105,7 @@ if ($spotifyInstalled) {
 	$update = $true
   } else {
     Write-Host @'
-Versucht nicht, Spotify zu aktualisieren.
+Spotify wird nicht aktualisiert.
 '@
   }
 } else {
@@ -165,17 +159,17 @@ if ($ch -eq 'y'){
     Copy-Item -LiteralPath $remup -Destination "$SpotifyApps"
 } else{
      Write-Host @'
-Die Upgrade-Schaltfläche lässt sich nicht entfernen.
+Die Upgrade-Schaltflaeche laesst sich nicht entfernen.
 '@`n
 }
 
-$ch = Read-Host -Prompt "Ändern Sie Alpha UI zurueck zu Old UI. (BTS unterstuetzt nur die alte UI). (Y/N) "
+$ch = Read-Host -Prompt "aendern Sie Alpha UI zurueck zu Old UI. (BTS unterstuetzt nur die alte UI). (Y/N) "
 if ($ch -eq 'y'){
     move $SpotifyApps\xpui.spa $SpotifyApps\xpui.spa.bak >$null 2>&1
     Copy-Item -LiteralPath $uipat -Destination "$SpotifyApps"
 } else{
      Write-Host @'
-Die Benutzeroberfläche wird nicht geändert.
+Die Benutzeroberflaeche wird nicht geaendert.
 '@`n
 }
 #>
@@ -246,10 +240,9 @@ Start-Process -WorkingDirectory $SpotifyDirectory -FilePath $SpotifyExecutable
 Write-Host 'Fertig.'
 
 write-host @'
-***************** 
-@Saoas Nachricht:
+#########################
 Danke, und viel spass! :D
-***************** 
+#########################
 '@
 
 exit
