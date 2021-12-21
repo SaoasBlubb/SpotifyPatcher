@@ -1,7 +1,7 @@
 @echo off
-echo *****************
+echo #########################
 echo Author: @Saoas
-echo *****************
+echo #########################
 echo Entferne Patch
 if exist "%APPDATA%\Spotify\chrome_elf_bak.dll" (
     del /s /q "%APPDATA%\Spotify\chrome_elf.dll" > NUL 2>&1
