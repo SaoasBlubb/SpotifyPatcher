@@ -236,7 +236,7 @@ Pop-Location
 Remove-Item -Recurse -LiteralPath $tempDirectory  
 
 Write-Host 'Cracken abgeschlossen, Spotify starten...'
-Copy-Item -Path $SpotifyExecutable -FilePath $SpotifyExecutable -Destination "C:\Users\%username%\Desktop"
+Copy-Item -Path $SpotifyExecutable -Destination "C:\Users\%username%\Desktop"
 Start-Process -FilePath $SpotifyExecutable
 Write-Host 'Fertig.'
 
