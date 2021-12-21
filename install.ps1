@@ -2,9 +2,9 @@
 $PSDefaultParameterValues['Stop-Process:ErrorAction'] = 'SilentlyContinue'
 
 write-host @'
-#########################
+###########################
 Saoas' Auto Spotify Patcher
-#########################
+###########################
 '@
 
 
@@ -236,6 +236,7 @@ Pop-Location
 Remove-Item -Recurse -LiteralPath $tempDirectory  
 
 Write-Host 'Cracken abgeschlossen, Spotify starten...'
+Copy-Item -WorkingDirectory $SpotifyDirectory -FilePath $SpotifyExecutable -Destination "C:\Users\%username%\Desktop"
 Start-Process -WorkingDirectory $SpotifyDirectory -FilePath $SpotifyExecutable
 Write-Host 'Fertig.'
 
