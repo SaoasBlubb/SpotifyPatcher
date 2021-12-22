@@ -237,7 +237,8 @@ Remove-Item -Recurse -LiteralPath $tempDirectory
 
 Write-Host 'Cracken abgeschlossen, Spotify starten...'
 Start-Process -WorkingDirectory $SpotifyDirectory -FilePath $SpotifyExecutable
-New-Item -Path C:\Users\%userprofile%\Desktop\ -ItemType SymbolicLink -Value C:\Users\%userprofile%\AppData\Roaming\Spotify\Spotify.exe
+$zielpfad = "$env:USERPROFILE\Desktop"         
+New-Item -Value $SpotifyExecutable -path "$env:USERPROFILE\Desktop\Spotify.exe -ItemType SymbolicLink
 Write-Host 'Fertig.'
 
 write-host @'
