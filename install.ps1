@@ -138,7 +138,7 @@ Neueste Spotify-Vollversion wird heruntergeladen, bitte warten...
      }
   Stop-Process -Name Spotify >$null 2>&1
   Stop-Process -Name SpotifyWebHelper >$null 2>&1
-  Stop-Process -Name SpotifySetup >$null 2>&1
+  Stop-Process -Name SpotifyInstaller >$null 2>&1
 }
 
 if (!(test-path $SpotifyDirectory/chrome_elf_bak.dll)){
