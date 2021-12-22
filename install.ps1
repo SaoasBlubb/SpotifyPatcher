@@ -120,9 +120,9 @@ Neueste Spotify-Vollversion wird heruntergeladen, bitte warten...
   try {
     $webClient.DownloadFile(
       # Remote file URL
-      'https://download.scdn.co/SpotifyFullSetup.exe',
+      'https://download.scdn.co/SpotifySetup.exe',
       # Local file path
-      "$PWD\SpotifyFullSetup.exe"
+      "$PWD\SpotifySetup.exe"
     )
   } catch {
     Write-Output $_
@@ -131,14 +131,14 @@ Neueste Spotify-Vollversion wird heruntergeladen, bitte warten...
   }
   mkdir $SpotifyDirectory >$null 2>&1
   Write-Host 'Starte installation...'
-  Start-Process -FilePath "$PWD\SpotifyFullSetup.exe"
+  Start-Process -FilePath "$PWD\SpotifySetup.exe"
   Write-Host 'Stoppe Spotify...Erneut'
   while ((Get-Process -name Spotify -ErrorAction SilentlyContinue) -eq $null){
      #waiting until installation complete
      }
   Stop-Process -Name Spotify >$null 2>&1
   Stop-Process -Name SpotifyWebHelper >$null 2>&1
-  Stop-Process -Name SpotifyFullSetup >$null 2>&1
+  Stop-Process -Name SpotifySetup >$null 2>&1
 }
 
 if (!(test-path $SpotifyDirectory/chrome_elf_bak.dll)){
