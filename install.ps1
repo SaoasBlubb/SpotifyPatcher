@@ -239,7 +239,7 @@ Write-Host 'Cracken abgeschlossen, Spotify starten...'
 Start-Process -WorkingDirectory $SpotifyDirectory -FilePath $SpotifyExecutable
 Write-Host 'Fertig.'
 
-write-host @'
+Write-host @'
 #########################
 Danke, und viel spass! :D
 #########################
