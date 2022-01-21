@@ -28,7 +28,7 @@ function Get-File
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    $useBitTransfer = $null -ne (Get-Module -Name BitsTransfer -ListAvailable) -and ($PSVersionTable.PSVersion.Major -le 5)
+	$useBitTransfer = $null -ne (Get-Module -Name BitsTransfer -ListAvailable) -and ($PSVersionTable.PSVersion.Major -le 5) -and ((Get-Service -Name BITS).StartType -ne [System.ServiceProcess.ServiceStartMode]::Disabled)
 
     if ($useBitTransfer)
     {
@@ -111,7 +111,6 @@ if (Get-AppxPackage -Name SpotifyAB.SpotifyMusic)
 Push-Location -LiteralPath $env:TEMP
 try
 {
-  # Unique directory name based on time
   New-Item -Type Directory -Name "SpotifyCrack-$(Get-Date -UFormat '%Y-%m-%d_%H-%M-%S')" |
   Convert-Path |
   Set-Location
@@ -204,8 +203,6 @@ if (-not $spotifyInstalled -or $update)
     Start-Sleep -Milliseconds 100
   }
 
-  # Erstellen einer Verknuepfung zu Spotify in %APPDATA%\Microsoft\Windows\Start Menu\Programs und Desktop 
-  # (ermoeglicht den Start des Programms ueber die Suche und den Desktop)
   $wshShell = New-Object -comObject WScript.Shell
   $desktopShortcut = $wshShell.CreateShortcut("$Home\Desktop\Spotify.lnk")
   $startMenuShortcut = $wshShell.CreateShortcut("$Home\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Spotify.lnk")
@@ -239,8 +236,6 @@ if ($ch -eq 'y')
   $xpuiUnpackedPath = Join-Path -Path (Join-Path -Path $spotifyApps -ChildPath 'xpui') -ChildPath 'xpui.js'
   $fromZip = $false
 
-  # Versuchen Sie, xpui.js aus xpui.spa fuer normale Spotify-Installationen zu lesen, oder
-  # direkt aus Apps/xpui/xpui.js, falls Spicetify installiert ist.
   if (Test-Path $xpuiBundlePath)
   {
     Add-Type -Assembly 'System.IO.Compression.FileSystem'
@@ -249,7 +244,6 @@ if ($ch -eq 'y')
     $zip = [System.IO.Compression.ZipFile]::Open($xpuiBundlePath, 'update')
     $entry = $zip.GetEntry('xpui.js')
 
-    # Extract xpui.js from zip to memory
     $reader = New-Object System.IO.StreamReader($entry.Open())
     $xpuiContents = $reader.ReadToEnd()
     $reader.Close()
@@ -270,11 +264,8 @@ if ($ch -eq 'y')
 
   if ($xpuiContents)
   {
-    # Ersetzen Sie ".ads.leaderboard.isEnabled" + separator - '}' oder  ')'
-    # Mit ".ads.leaderboard.isEnabled&&false" + separator
     $xpuiContents = $xpuiContents -replace '(\.ads\.leaderboard\.isEnabled)(}|\))', '$1&&false$2'
 
-    # Loeschen Sie ".createElement(XX,{onClick:X,className:XX.X.UpgradeButton}),X()"
     $xpuiContents = $xpuiContents -replace '\.createElement\([^.,{]+,{onClick:[^.,]+,className:[^.]+\.[^.]+\.UpgradeButton}\),[^.(]+\(\)', ''
 
     if ($fromZip)
