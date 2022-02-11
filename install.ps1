@@ -1,74 +1,112 @@
+param (
+  [Parameter()]
+  [switch]
+  $UninstallSpotifyStoreEdition = (Read-Host -Prompt 'Deinstallieren Sie die Spotify Windows Store-Edition, falls sie existiert (Y/N)') -eq 'y',
+  [Parameter()]
+  [switch]
+  $UpdateSpotify,
+  [Parameter()]
+  [switch]
+  $RemoveAdPlaceholder = (Read-Host -Prompt 'Optional - Entfernen Sie den Anzeigenplatzhalter und die Upgrade-Schaltflaeche. (Y/N)') -eq 'y'
+)
+
 $PSDefaultParameterValues['Stop-Process:ErrorAction'] = [System.Management.Automation.ActionPreference]::SilentlyContinue
+
+[System.Version] $minimalSupportedSpotifyVersion = '1.1.73.517'
+[System.Version] $maximalSupportedSpotifyVersion = '1.1.78.765'
+
 function Get-File
 {
-    param (
-        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
-        [ValidateNotNullOrEmpty()]
-        [System.Uri]
-        $Uri,
-        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
-        [ValidateNotNullOrEmpty()]
-        [System.IO.FileInfo]
-        $TargetFile,
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [ValidateNotNullOrEmpty()]
-        [Int32]
-        $BufferSize = 1,
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [ValidateNotNullOrEmpty()]
-        [ValidateSet('KB, MB')]
-        [String]
-        $BufferUnit = 'MB',
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [ValidateNotNullOrEmpty()]
-        [ValidateSet('KB, MB')]
-        [Int32]
-        $Timeout = 10000
-    )
+  param (
+    [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [System.Uri]
+    $Uri,
+    [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [System.IO.FileInfo]
+    $TargetFile,
+    [Parameter(ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [Int32]
+    $BufferSize = 1,
+    [Parameter(ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [ValidateSet('KB, MB')]
+    [String]
+    $BufferUnit = 'MB',
+    [Parameter(ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [ValidateSet('KB, MB')]
+    [Int32]
+    $Timeout = 10000
+  )
 
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-	$useBitTransfer = $null -ne (Get-Module -Name BitsTransfer -ListAvailable) -and ($PSVersionTable.PSVersion.Major -le 5) -and ((Get-Service -Name BITS).StartType -ne [System.ServiceProcess.ServiceStartMode]::Disabled)
+  $useBitTransfer = $null -ne (Get-Module -Name BitsTransfer -ListAvailable) -and ($PSVersionTable.PSVersion.Major -le 5) -and ((Get-Service -Name BITS).StartType -ne [System.ServiceProcess.ServiceStartMode]::Disabled)
 
-    if ($useBitTransfer)
+  if ($useBitTransfer)
+  {
+    Write-Information -MessageData 'Verwendung einer Fallback-BitTransfer-Methode, da Sie Windows PowerShell ausfuehren'
+    Start-BitsTransfer -Source $Uri -Destination "$($TargetFile.FullName)"
+  }
+  else
+  {
+    $request = [System.Net.HttpWebRequest]::Create($Uri)
+    $request.set_Timeout($Timeout)
+    $response = $request.GetResponse()
+    $totalLength = [System.Math]::Floor($response.get_ContentLength() / 1024)
+    $responseStream = $response.GetResponseStream()
+    $targetStream = New-Object -TypeName ([System.IO.FileStream]) -ArgumentList "$($TargetFile.FullName)", Create
+    switch ($BufferUnit)
     {
-        Write-Information -MessageData 'Verwendung einer Fallback-BitTransfer-Methode, da Sie Windows PowerShell ausfuehren'
-        Start-BitsTransfer -Source $Uri -Destination "$($TargetFile.FullName)"
+      'KB' { $BufferSize = $BufferSize * 1024 }
+      'MB' { $BufferSize = $BufferSize * 1024 * 1024 }
+      Default { $BufferSize = 1024 * 1024 }
     }
-    else
+    Write-Verbose -Message "Puffergroeße: $BufferSize B ($($BufferSize/("1$BufferUnit")) $BufferUnit)"
+    $buffer = New-Object byte[] $BufferSize
+    $count = $responseStream.Read($buffer, 0, $buffer.length)
+    $downloadedBytes = $count
+    $downloadedFileName = $Uri -split '/' | Select-Object -Last 1
+    while ($count -gt 0)
     {
-        $request = [System.Net.HttpWebRequest]::Create($Uri)
-        $request.set_Timeout($Timeout) #15 second timeout
-        $response = $request.GetResponse()
-        $totalLength = [System.Math]::Floor($response.get_ContentLength() / 1024)
-        $responseStream = $response.GetResponseStream()
-        $targetStream = New-Object -TypeName ([System.IO.FileStream]) -ArgumentList "$($TargetFile.FullName)", Create
-        switch ($BufferUnit)
-        {
-            'KB' { $BufferSize = $BufferSize * 1024 }
-            'MB' { $BufferSize = $BufferSize * 1024 * 1024 }
-            Default { $BufferSize = 1024 * 1024 }
-        }
-        Write-Verbose -Message "Puffergroeße: $BufferSize B ($($BufferSize/("1$BufferUnit")) $BufferUnit)"
-        $buffer = New-Object byte[] $BufferSize
-        $count = $responseStream.Read($buffer, 0, $buffer.length)
-        $downloadedBytes = $count
-        $downloadedFileName = $Uri -split '/' | Select-Object -Last 1
-        while ($count -gt 0)
-        {
-            $targetStream.Write($buffer, 0, $count)
-            $count = $responseStream.Read($buffer, 0, $buffer.length)
-            $downloadedBytes = $downloadedBytes + $count
-            Write-Progress -Activity "Herunterladen der Datei '$downloadedFileName'" -Status "Heruntergeladen ($([System.Math]::Floor($downloadedBytes/1024))K of $($totalLength)K): " -PercentComplete ((([System.Math]::Floor($downloadedBytes / 1024)) / $totalLength) * 100)
-        }
-
-        Write-Progress -Activity "Beendetes Herunterladen der Datei '$downloadedFileName'"
-
-        $targetStream.Flush()
-        $targetStream.Close()
-        $targetStream.Dispose()
-        $responseStream.Dispose()
+      $targetStream.Write($buffer, 0, $count)
+      $count = $responseStream.Read($buffer, 0, $buffer.length)
+      $downloadedBytes = $downloadedBytes + $count
+      Write-Progress -Activity "Datei herunterladen '$downloadedFileName'" -Status "Heruntergeladen ($([System.Math]::Floor($downloadedBytes/1024))K of $($totalLength)K): " -PercentComplete ((([System.Math]::Floor($downloadedBytes / 1024)) / $totalLength) * 100)
     }
+
+    Write-Progress -Activity "Beendetes Herunterladen der Datei '$downloadedFileName'"
+
+    $targetStream.Flush()
+    $targetStream.Close()
+    $targetStream.Dispose()
+    $responseStream.Dispose()
+  }
+}
+
+function Test-SpotifyVersion
+{
+  param (
+    [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [System.Version]
+    $MinimalSupportedVersion,
+    [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+    [ValidateNotNullOrEmpty()]
+    [System.Version]
+    $MaximalSupportedVersion,
+    [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+    [System.Version]
+    $TestedVersion
+  )
+
+  process
+  {
+    return ($MinimalSupportedVersion.CompareTo($TestedVersion) -le 0) -and ($MaximalSupportedVersion.CompareTo($TestedVersion) -ge 0)
+  }
 }
 
 write-host @'
@@ -77,12 +115,13 @@ Saoas' Auto Spotify Patcher
 ###########################
 '@
 
-
 $spotifyDirectory = Join-Path -Path $env:APPDATA -ChildPath 'Spotify'
 $spotifyExecutable = Join-Path -Path $spotifyDirectory -ChildPath 'Spotify.exe'
 $spotifyApps = Join-Path -Path $spotifyDirectory -ChildPath 'Apps'
 
-Write-Host "Beende Spotify...`n"
+[System.Version] $actualSpotifyClientVersion = (Get-ChildItem -LiteralPath $spotifyExecutable -ErrorAction:SilentlyContinue).VersionInfo.ProductVersionRaw
+
+Write-Host "Spotify stoppen...`n"
 Stop-Process -Name Spotify
 Stop-Process -Name SpotifyWebHelper
 
@@ -95,8 +134,7 @@ if (Get-AppxPackage -Name SpotifyAB.SpotifyMusic)
 {
   Write-Host "Die Microsoft Store-Version von Spotify wurde erkannt, die nicht unterstuetzt wird.`n"
 
-  $ch = Read-Host -Prompt 'Spotify Windows Store Edition deinstallieren (Y/N)'
-  if ($ch -eq 'y')
+  if ($UninstallSpotifyStoreEdition)
   {
     Write-Host "Spotify deinstallieren.`n"
     Get-AppxPackage -Name SpotifyAB.SpotifyMusic | Remove-AppxPackage
@@ -139,24 +177,17 @@ Expand-Archive -Force -LiteralPath "$elfPath" -DestinationPath $PWD
 Remove-Item -LiteralPath "$elfPath" -Force
 
 $spotifyInstalled = Test-Path -LiteralPath $spotifyExecutable
-$update = $false
-if ($spotifyInstalled)
+$unsupportedClientVersion = ($actualSpotifyClientVersion | Test-SpotifyVersion -MinimalSupportedVersion $minimalSupportedSpotifyVersion -MaximalSupportedVersion $maximalSupportedSpotifyVersion) -eq $false
+
+if (-not $UpdateSpotify -and $unsupportedClientVersion)
 {
-  $ch = Read-Host -Prompt 'Optional - Aktualisieren Sie Spotify auf die neueste Version. (Koennte bereits aktualisiert sein). (Y/N)'
-  if ($ch -eq 'y')
+  if ((Read-Host -Prompt 'Um Spotify Patcher installieren zu koennen, muss Ihr Spotify-Client aktualisiert werden. Moechten Sie fortfahren? (Y/N)') -ne 'y')
   {
-    $update = $true
-  }
-  else
-  {
-    Write-Host 'Versucht nicht, Spotify zu aktualisieren.'
+    exit
   }
 }
-else
-{
-  Write-Host 'Die Spotify-Installation wurde nicht erkannt.'
-}
-if (-not $spotifyInstalled -or $update)
+
+if (-not $spotifyInstalled -or $UpdateSpotify -or $unsupportedClientVersion)
 {
   Write-Host 'Ich lade die neueste Spotify Vollversion herunter, bitte warten...'
   $spotifySetupFilePath = Join-Path -Path $PWD -ChildPath 'SpotifyFullSetup.exe'
@@ -181,12 +212,12 @@ if (-not $spotifyInstalled -or $update)
     Write-Host
     Write-Host 'Geplante Aufgabe erstellen...'
     $apppath = 'powershell.exe'
-    $taskname = 'Spotify Installation'
+    $taskname = 'Spotify install'
     $action = New-ScheduledTaskAction -Execute $apppath -Argument "-NoLogo -NoProfile -Command & `'$spotifySetupFilePath`'"
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -WakeToRun
     Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskname -Settings $settings -Force | Write-Verbose
-    Write-Host 'Die Installationsaufgabe wurde geplant. Starte die Aufgabe...'
+    Write-Host 'Die Installationsaufgabe wurde geplant. Starten der Aufgabe...'
     Start-ScheduledTask -TaskName $taskname
     Start-Sleep -Seconds 2
     Write-Host 'Aufhebung der Registrierung der Aufgabe...'
@@ -203,15 +234,26 @@ if (-not $spotifyInstalled -or $update)
     Start-Sleep -Milliseconds 100
   }
 
-  $wshShell = New-Object -comObject WScript.Shell
-  $desktopShortcut = $wshShell.CreateShortcut("$Home\Desktop\Spotify.lnk")
-  $startMenuShortcut = $wshShell.CreateShortcut("$Home\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Spotify.lnk")
-  $desktopShortcut.TargetPath = "$Home\AppData\Roaming\Spotify\Spotify.exe"
-  $startMenuShortcut.TargetPath = "$Home\AppData\Roaming\Spotify\Spotify.exe"
-  $desktopShortcut.Save()
-  $startMenuShortcut.Save()
+  $wshShell = New-Object -ComObject WScript.Shell
 
-  Write-Host 'Spotify stoppen...erneut'
+  $desktopShortcutPath = "$env:USERPROFILE\Desktop\Spotify.lnk"
+  if ((Test-Path $desktopShortcutPath) -eq $false)
+  {
+    $desktopShortcut = $wshShell.CreateShortcut($desktopShortcutPath)
+    $desktopShortcut.TargetPath = "$env:APPDATA\Spotify\Spotify.exe"
+    $desktopShortcut.Save()
+  }
+
+  $startMenuShortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Spotify.lnk"
+  if ((Test-Path $startMenuShortcutPath) -eq $false)
+  {
+    $startMenuShortcut = $wshShell.CreateShortcut($startMenuShortcutPath)
+    $startMenuShortcut.TargetPath = "$env:APPDATA\Spotify\Spotify.exe"
+    $startMenuShortcut.Save()
+  }
+
+
+  Write-Host 'Spotify stoppen...schon wieder'
 
   Stop-Process -Name Spotify
   Stop-Process -Name SpotifyWebHelper
@@ -224,13 +266,12 @@ if ((Test-Path $elfDllBackFilePath) -eq $false)
   Move-Item -LiteralPath "$elfBackFilePath" -Destination "$elfDllBackFilePath" | Write-Verbose
 }
 
-Write-Host 'Spotify patchen...'
+Write-Host 'Patching Spotify...'
 $patchFiles = (Join-Path -Path $PWD -ChildPath 'chrome_elf.dll'), (Join-Path -Path $PWD -ChildPath 'config.ini')
 
 Copy-Item -LiteralPath $patchFiles -Destination "$spotifyDirectory"
 
-$ch = Read-Host -Prompt 'Optional - Entfernen Sie den Anzeigenplatzhalter und die Upgrade-Schaltflaeche. (Y/N)'
-if ($ch -eq 'y')
+if ($RemoveAdPlaceholder)
 {
   $xpuiBundlePath = Join-Path -Path $spotifyApps -ChildPath 'xpui.spa'
   $xpuiUnpackedPath = Join-Path -Path (Join-Path -Path $spotifyApps -ChildPath 'xpui') -ChildPath 'xpui.js'
@@ -259,7 +300,7 @@ if ($ch -eq 'y')
   }
   else
   {
-    Write-Host 'xpui.js konnte nicht gefunden werden, bitte oeffnen Sie einen Fehler im SpotifyPatcher Repository.'
+    Write-Host 'xpui.js konnte nicht gefunden werden, bitte oeffnen Sie einen Fehler im BlockTheSpot Repository.'
   }
 
   if ($xpuiContents)
@@ -303,5 +344,3 @@ write-host @'
 Danke, und viel spass! :D
 #########################
 '@
-
-exit
